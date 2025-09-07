@@ -1,6 +1,7 @@
 import torch
 from torch import Tensor
 
+from typing import Dict
 
 class LinearNoiseScheduler:
     """Implements the linear noise scheduling mechanism from the DDPM paper.
@@ -21,6 +22,13 @@ class LinearNoiseScheduler:
     """
 
     ALLOWED_PARAMS = {"num_timesteps", "beta_start", "beta_end", "device"}
+    
+    # Built-in defaults if a key is not provided
+    DEFAULTS: Dict[str, float] = {
+        "num_timesteps": 1000,
+        "beta_start": 1e-4,
+        "beta_end": 2e-2,  # 0.02
+    }
 
     def __init__(self, device, *args, **kwargs):
         """Initializes the noise scheduler with linear beta schedule.
@@ -30,18 +38,39 @@ class LinearNoiseScheduler:
             beta_start: Starting value for beta schedule (small positive value).
             beta_end: Ending value for beta schedule.
         """
-        self.num_timesteps = 1000
-        self.beta_start = 0.0001
-        self.beta_end = 0.02
         self.device = device
+        
+        # 1) Start from defaults
+        cfg: Dict = dict(self.DEFAULTS)
 
-        # Update only valid parameters
-        valid_keys = {k for k in self.__dict__}
-        for key, value in kwargs["DDPMParams"].items():
-            if key in valid_keys:
-                setattr(self, key, value)
-            else:
-                raise AttributeError(f"Invalid parameter: {key}")
+        # Try to read kwargs["DDPMParams"].items(); fall back to defaults if missing/invalid
+        try:
+            ddpm = kwargs["DDPMParams"]
+            # accept dict-like objects (must have .items())
+            items_iter = ddpm.items() if hasattr(ddpm, "items") else ()
+        except KeyError:
+            items_iter = ()  # key absent → just keep defaults
+
+        # Overlay provided DDPMParams (only known keys)
+        for k, v in items_iter:
+            if k not in self.ALLOWED_PARAMS:
+                raise AttributeError(f"Invalid parameter in DDPMParams: {k}")
+            cfg[k] = v
+
+        # (Optional) allow direct kwargs overrides too; comment this block out if not desired
+        for k in self.ALLOWED_PARAMS:
+            if k in kwargs:
+                cfg[k] = kwargs[k]
+
+        # Normalize types + validate
+        self.num_timesteps = int(cfg["num_timesteps"])
+        self.beta_start = float(cfg["beta_start"])
+        self.beta_end = float(cfg["beta_end"])
+        if self.num_timesteps <= 0:
+            raise ValueError("num_timesteps must be > 0")
+        if not (0.0 < self.beta_start < self.beta_end < 1.0):
+            raise ValueError("Require 0 < beta_start < beta_end < 1")
+
 
         # Generate linearly spaced beta values (Eq. 2 in paper)
         self.betas = torch.linspace(
@@ -122,18 +151,11 @@ class LinearNoiseScheduler:
         z = torch.randn_like(x_t)
         return mean + sigma * z, x0
 
-    def to(self, device):
-        # Generate linearly spaced beta values (Eq. 2 in paper)
-        self.betas.to(device)
-
-        # Calculate alpha parameters (Eq. 4 in paper)
-        self.alphas.to(device)
-
-        # Compute cumulative product of alphas (ᾱ_t in paper)
-        self.alphas_cumprod.to(device)
-
-        # Precompute terms for efficient noise addition during forward process
-        self.sqrt_alphas_cumprod.to(device)
-        self.sqrt_one_minus_alphas_cumprod.to(device)
-
-        return self
+def to(self, device):
+    self.device = device
+    self.betas = self.betas.to(device)
+    self.alphas = self.alphas.to(device)
+    self.alphas_cumprod = self.alphas_cumprod.to(device)
+    self.sqrt_alphas_cumprod = self.sqrt_alphas_cumprod.to(device)
+    self.sqrt_one_minus_alphas_cumprod = self.sqrt_one_minus_alphas_cumprod.to(device)
+    return self

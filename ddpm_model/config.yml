@@ -1,0 +1,6 @@
+package_name: DDPM
+
+DDPMParams:
+  num_timesteps : 1000
+  beta_start : 0.0001
+  beta_end : 0.02
