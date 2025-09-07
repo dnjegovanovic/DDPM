@@ -34,8 +34,8 @@ Precompute $\{\alpha_t\}_{t=1}^T$ and $\{\bar\alpha_t\}_{t=1}^T$ once.
 
 ## Forward (Diffusion) Process *(Ho et al., Eq. 4)*
 
-$ q(x_t\mid x_0)=\mathcal N\!\big(x_t;\ \sqrt{\bar\alpha_t}\,x_0,\ (1-\bar\alpha_t)\mathbf I\big) $  
-$ x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon $
+$q(x_t\mid x_0)=\mathcal N\!\big(x_t;\ \sqrt{\bar\alpha_t}\,x_0,\ (1-\bar\alpha_t)\mathbf I\big) $  
+$x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon $
 
 ---
 
@@ -44,13 +44,13 @@ $ x_t=\sqrt{\bar\alpha_t}\,x_0+\sqrt{1-\bar\alpha_t}\,\epsilon $
 Let $\epsilon_\theta(x_t,t)$ be the network that predicts the added noise.  
 Then the mean of the reverse transition $p_\theta(x_{t-1}\mid x_t)$ is
 
-$ \mu_\theta(x_t,t) = \frac{1}{\sqrt{\alpha_t}}\!\left(x_t - \frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\,\epsilon_\theta(x_t,t)\right) $.
+$\mu_\theta(x_t,t) = \frac{1}{\sqrt{\alpha_t}}\!\left(x_t - \frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\,\epsilon_\theta(x_t,t)\right) $.
 
 ---
 
 ## Posterior (Sampling) Variance *(Ho et al., Eq. 15)*
 
-$ \sigma_t^2 = \tilde\beta_t = \frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}\,\beta_t,\quad (\text{with }\bar\alpha_0:=1) $
+$\sigma_t^2 = \tilde\beta_t = \frac{1-\bar\alpha_{t-1}}{1-\bar\alpha_t}\,\beta_t,\quad (\text{with }\bar\alpha_0:=1) $
 
 At $t=1$, sampling often uses $\sigma_1^2=\tilde\beta_1$; at $t>1$, sample
 $x_{t-1}\sim\mathcal N(\mu_\theta,\sigma_t^2\mathbf I)$.
