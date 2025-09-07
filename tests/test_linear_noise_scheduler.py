@@ -2,6 +2,7 @@ import pytest
 import torch
 from torch import Tensor
 from ddpm_model.models.LinearNoiseScheduler import LinearNoiseScheduler
+from ddpm_model.config.core import config
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -10,7 +11,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 @pytest.fixture
 def scheduler():
     return LinearNoiseScheduler(
-        num_timesteps=10, beta_start=0.0001, beta_end=0.02, device=DEVICE
+        **vars(config), device=DEVICE
     )
 
 
