@@ -32,6 +32,8 @@ Precompute $\{\alpha_t\}_{t=1}^T$ and $\{\bar\alpha_t\}_{t=1}^T$ once.
 
 ---
 
+<!-- @import "[TOC]" {cmd="toc" depthFrom=1 depthTo=6 orderedList=false} -->
+
 ## Forward (Diffusion) Process *(Ho et al., Eq. 4)*
 
 $q(x_t\mid x_0)=\mathcal N\!\big(x_t;\ \sqrt{\bar\alpha_t}\,x_0,\ (1-\bar\alpha_t)\mathbf I\big) $  
@@ -86,3 +88,69 @@ eps = 1e-12
 alphas_cumprod = torch.clamp(alphas_cumprod, min=eps, max=1.0)
 sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
 sqrt_one_minus_alphas_cumprod = torch.sqrt(torch.clamp(1.0 - alphas_cumprod, min=eps))
+```
+
+---
+
+## Visualizations
+
+This repo includes a script to visualize key components and save figures to `artifacts/`. Run:
+
+```bash
+python scripts/visualize_components.py --device cpu --outdir artifacts
+```
+
+You can skip parts with `--skip time mhsa mhca down` and use `--device cuda` if available.
+
+### Time Embedding
+
+![Time Embedding Heatmap](artifacts/time_embedding_heatmap.png)
+
+- Shows sinusoidal time embeddings for timesteps `[0, 1, 10, 100]` across 320 dims.  
+- Brighter bands indicate higher magnitude; the structure reflects sin/cos at different frequencies.  
+- At `t=0`, the sin half is 0 and the cos half is 1.
+
+![Time Embedding (first 64 dims)](artifacts/time_embedding_first64.png)
+
+- Line plot of the first 64 embedding dimensions for the same timesteps.  
+- Lower-frequency components vary slowly with `t`, higher-frequency components vary rapidly.
+
+### Self-Attention (MHSA)
+
+![Self-Attention Head 0](artifacts/mhsa_head0.png)
+
+- Left: attention weights without causal mask. Right: with causal mask (upper triangle suppressed).  
+- Rows are queries, columns are keys; color is attention probability.  
+- Causal masking prevents attending to future positions, shifting weight mass to the left of the diagonal.
+
+![Self-Attention Head 1](artifacts/mhsa_head1.png)
+
+- Another head may focus on different relative positions. Differences across heads illustrate multi-head diversity.
+
+### Cross-Attention (MHCA)
+
+![Cross-Attention Head 0](artifacts/mhca_head0.png)
+
+- Attention from query tokens (rows) to context tokens (columns).  
+- High-probability columns indicate which context positions inform each query most strongly.
+
+![Cross-Attention Head 1](artifacts/mhca_head1.png)
+
+- Different heads often specialize in different alignment patterns between query and context.
+
+### UNet Downsampling Block
+
+![Downsampling Block Feature Map](artifacts/downsample_block_channel0.png)
+
+- Left: input channel 0 feature map (e.g., a simple gradient).  
+- Right: output channel 0 after residual+attention processing and stride-2 downsampling.  
+- Spatial resolution halves, channel count matches `out_channels`.
+
+---
+
+## Reproducing Figures
+
+- Ensure dependencies are installed (e.g., `matplotlib`, `torch`).  
+- Generate all figures: `python scripts/visualize_components.py --outdir artifacts`  
+- Use `--skip` to control which figures are saved.  
+- For CUDA, pass `--device cuda` if a GPU is available.
