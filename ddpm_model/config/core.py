@@ -19,12 +19,15 @@ class AppConfig(BaseModel):
 class DDPModel(BaseModel):
     DDPMParams: Dict
 
-
+class UNet(BaseModel):
+    UnetParams: Dict
+    
 class Config(BaseModel):
     """Master config object."""
 
     ddpm_model: DDPModel
     app_config: AppConfig
+    unet_model: UNet
 
 
 def find_config_file() -> Path:
@@ -60,12 +63,30 @@ def create_and_validate_config(parsed_config: YAML = None) -> Config:
                 )
                 parsed_config[k]["beta_start"] = float(parsed_config[k]["beta_start"])
                 parsed_config[k]["beta_end"] = float(parsed_config[k]["beta_end"])
+            elif k == "UnetParams":
+                parsed_config[k]["im_channels"] = int(parsed_config[k]["im_channels"])
+                parsed_config[k]["im_size"] = int(parsed_config[k]["im_size"])
+                parsed_config[k]["down_channels"] = parsed_config[k]["down_channels"]
+                parsed_config[k]["mid_channels"] = parsed_config[k]["mid_channels"]
+                parsed_config[k]["down_sample"] = parsed_config[k]["down_sample"]
+                parsed_config[k]["time_emb_dim"] = int(parsed_config[k]["time_emb_dim"])
+                parsed_config[k]["num_down_layers"] = int(
+                    parsed_config[k]["num_down_layers"]
+                )
+                parsed_config[k]["num_mid_layers"] = int(
+                    parsed_config[k]["num_mid_layers"]
+                )
+                parsed_config[k]["num_up_layers"] = int(
+                    parsed_config[k]["num_up_layers"]
+                )
+                parsed_config[k]["num_heads"] = int(parsed_config[k]["num_heads"])
             else:
                 Exception("No configuration in config file.")
 
     _config = Config(
         app_config=AppConfig(**parsed_config),
         ddpm_model=DDPModel(**parsed_config),
+        unet_model=UNet(**parsed_config),
     )
 
     return _config

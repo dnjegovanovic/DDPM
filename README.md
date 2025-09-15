@@ -100,7 +100,7 @@ This repo includes a script to visualize key components and save figures to `art
 python scripts/visualize_components.py --device cpu --outdir artifacts
 ```
 
-You can skip parts with `--skip time mhsa mhca down` and use `--device cuda` if available.
+You can skip parts with `--skip time mhsa mhca down bottleneck upsample unet mnist` and use `--device cuda` if available. When `--mnist-root` is not provided, the script auto-detects `data/MNIST/mnist_images` if present.
 
 ### Time Embedding
 
@@ -146,6 +146,38 @@ You can skip parts with `--skip time mhsa mhca down` and use `--device cuda` if 
 - Right: output channel 0 after residual+attention processing and stride-2 downsampling.  
 - Spatial resolution halves, channel count matches `out_channels`.
 
+### UNet Upsampling Block
+
+![Upsampling Block Feature Map](artifacts/upsample_block_channel0.png)
+
+- Left: input channel 0 feature map.  
+- Right: output channel 0 after residual+attention processing and transposed-conv upsampling.  
+- Spatial resolution doubles, channel count matches `out_channels`.
+
+### UNet (End-to-End)
+
+![UNet Input/Output](artifacts/unet_io.png)
+
+- Left: a simple RGB gradient input.
+- Right: UNet output for timestep `t=10`, normalized for display.
+- Demonstrates the full pipeline: downsampling path with skips, bottleneck, and upsampling path.
+
+### MNIST Dataset (Custom Loader)
+
+If you have a local MNIST-like folder (digits 0–9 as subfolders with images), you can visualize samples and label distribution:
+
+```bash
+python scripts/visualize_components.py --mnist-root /path/to/mnist_like --outdir artifacts
+```
+
+![MNIST Grid](artifacts/mnist_grid.png)
+
+- Grid of the first few samples normalized to [0,1] for display (dataset tensors are [-1,1]).
+
+![MNIST Label Histogram](artifacts/mnist_label_hist.png)
+
+- Counts per digit label based on folder names.
+
 ---
 
 ## Reproducing Figures
@@ -154,3 +186,29 @@ You can skip parts with `--skip time mhsa mhca down` and use `--device cuda` if 
 - Generate all figures: `python scripts/visualize_components.py --outdir artifacts`  
 - Use `--skip` to control which figures are saved.  
 - For CUDA, pass `--device cuda` if a GPU is available.
+
+---
+
+## Quick Start
+
+- Install dependencies: `pip install -r requirements/dev.txt` (or ensure `torch`, `matplotlib`, `pytest` installed).  
+- Visualize everything with repo defaults: `python scripts/visualize_components.py --outdir artifacts`  
+- MNIST visuals with custom path: `python scripts/visualize_components.py --mnist-root /path/to/mnist_like --outdir artifacts`
+
+---
+
+## Tests
+
+Run all tests:
+
+```bash
+pytest -q
+```
+
+Covered components:
+- LinearNoiseScheduler: schedule math, forward/reverse noise steps
+- Time Embedding + TimeEmbedding module: shape, values, device, validation
+- MultiHeadSelfAttention and MultiHeadCrossAttention: shapes, masking behavior, mixed dims
+- UNet blocks: DownSamplingBlock, BottleNeck, UpSamplingBlock (shapes, configs, error cases)
+- Full UNet: forward shape, config assertions
+- MNISTDataset: directory parsing, normalization, extension filtering, DataLoader integration

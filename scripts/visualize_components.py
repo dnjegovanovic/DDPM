@@ -17,7 +17,9 @@ from ddpm_model.models.MultiHeadAttention import (
     MultiHeadSelfAttention,
     MultiHeadCrossAttention,
 )
-from ddpm_model.models.UNetBlocks import DownSamplingBlock
+from ddpm_model.models.UNetBlocks import DownSamplingBlock, BottleNeck, UpSamplingBlock
+from ddpm_model.models.UNet import UNet
+from ddpm_model.datasets.MnistDatasets import MNISTDataset
 
 
 def _ensure_outdir(outdir: Path):
@@ -176,11 +178,141 @@ def visualize_downsample_block(outdir: Path, device: str = "cpu"):
     _savefig(outdir / "downsample_block_channel0.png")
 
 
+def visualize_bottleneck_block(outdir: Path, device: str = "cpu"):
+    B, C_in, C_out, H, W = 1, 16, 16, 16, 16
+    # Input pattern for interpretability
+    xv, yv = torch.meshgrid(
+        torch.linspace(-1, 1, steps=H, device=device),
+        torch.linspace(-1, 1, steps=W, device=device),
+        indexing="ij",
+    )
+    base = (xv + yv)[None, None]  # shape (1,1,H,W)
+    x = base.repeat(B, C_in, 1, 1)
+
+    time_dim = 128
+    t = torch.tensor([25.0], device=device)
+    t_emb = time_embedding_fun(t, time_embedding_dim=time_dim)
+
+    block = BottleNeck(
+        in_channels=C_in,
+        out_channels=C_out,
+        time_emb_dim=time_dim,
+        num_heads=4,
+        custom_mha=True,
+        num_layers=2,
+        grp_norm_chanels=8,
+    ).to(device).eval()
+
+    with torch.no_grad():
+        y = block(x, time_emb=t_emb)
+
+    # Visualize channel 0 before/after
+    plt.figure(figsize=(8, 3))
+    plt.subplot(1, 2, 1)
+    plt.imshow(x[0, 0].cpu(), cmap="gray")
+    plt.title(f"Bottleneck Input C0 ({H}x{W})")
+    plt.axis("off")
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(y[0, 0].cpu(), cmap="gray")
+    plt.title(f"Bottleneck Output C0 ({H}x{W})")
+    plt.axis("off")
+
+    _savefig(outdir / "bottleneck_block_channel0.png")
+
+
+def visualize_upsample_block(outdir: Path, device: str = "cpu"):
+    B, C_in, C_out, H, W = 1, 16, 16, 16, 16
+    # Create a 2D sinusoidal pattern for visibility
+    ys = torch.linspace(0, 2 * torch.pi, steps=H, device=device)
+    xs = torch.linspace(0, 2 * torch.pi, steps=W, device=device)
+    yv, xv = torch.meshgrid(ys, xs, indexing="ij")
+    base = (torch.sin(xv) + torch.cos(yv))[None, None]
+    x = base.repeat(B, C_in, 1, 1)
+
+    time_dim = 128
+    t = torch.tensor([5.0], device=device)
+    t_emb = time_embedding_fun(t, time_embedding_dim=time_dim)
+
+    block = UpSamplingBlock(
+        in_channels=C_in,
+        out_channels=C_out,
+        skip_channels=0,
+        time_emb_dim=time_dim,
+        num_heads=2,
+        up_sample=True,
+        custom_mha=True,
+        num_layers=2,
+        use_attn=True,
+        grp_norm_chanels=8,
+    ).to(device).eval()
+
+    with torch.no_grad():
+        y = block(x, time_emb=t_emb)
+
+    plt.figure(figsize=(8, 3))
+    plt.subplot(1, 2, 1)
+    plt.imshow(x[0, 0].cpu(), cmap="viridis")
+    plt.title(f"Upsample Input C0 ({H}x{W})")
+    plt.axis("off")
+
+    plt.subplot(1, 2, 2)
+    plt.imshow(y[0, 0].cpu(), cmap="viridis")
+    plt.title(f"Upsample Output C0 ({y.shape[-2]}x{y.shape[-1]})")
+    plt.axis("off")
+
+    _savefig(outdir / "upsample_block_channel0.png")
+
+
+def visualize_unet(outdir: Path, device: str = "cpu"):
+    # Minimal consistent UNet config matching GroupNorm groups of 8
+    params = {
+        "down_channels": [16, 32, 64],
+        "mid_channels": [64, 64, 32],
+        "down_sample": [True, True],
+        "im_channels": 3,
+        "time_emb_dim": 128,
+        "num_down_layers": 1,
+        "num_mid_layers": 1,
+        "num_up_layers": 1,
+    }
+
+    model = UNet(UnetParams=params).to(device).eval()
+
+    B, C, H, W = 1, params["im_channels"], 32, 32
+    # Simple RGB gradient image
+    grid_y, grid_x = torch.meshgrid(
+        torch.linspace(0, 1, steps=H, device=device),
+        torch.linspace(0, 1, steps=W, device=device),
+        indexing="ij",
+    )
+    img = torch.stack([grid_x, grid_y, 0.5 * torch.ones_like(grid_x)], dim=0)[None]
+
+    with torch.no_grad():
+        out = model(img, t=10)
+
+    plt.figure(figsize=(8, 3))
+    plt.subplot(1, 2, 1)
+    plt.imshow(img[0].permute(1, 2, 0).cpu().clamp(0, 1))
+    plt.title("UNet Input")
+    plt.axis("off")
+
+    plt.subplot(1, 2, 2)
+    out_vis = out[0].permute(1, 2, 0).cpu()
+    out_vis = (out_vis - out_vis.min()) / (out_vis.max() - out_vis.min() + 1e-8)
+    plt.imshow(out_vis)
+    plt.title("UNet Output")
+    plt.axis("off")
+
+    _savefig(outdir / "unet_io.png")
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Visualize components: time embedding, attention, UNet downsample block")
+    parser = argparse.ArgumentParser(description="Visualize components: time embedding, attention, UNet, and dataset samples")
     parser.add_argument("--outdir", type=Path, default=Path("artifacts"), help="Directory to save images")
     parser.add_argument("--device", type=str, default="cpu", choices=["cpu", "cuda"], help="Device to run on")
-    parser.add_argument("--skip", nargs="*", default=[], choices=["time", "mhsa", "mhca", "down"], help="Components to skip")
+    parser.add_argument("--skip", nargs="*", default=[], choices=["time", "mhsa", "mhca", "down", "bottleneck", "upsample", "unet", "mnist"], help="Components to skip")
+    parser.add_argument("--mnist-root", type=Path, default=None, help="Path to MNIST-like folder structure (digit subfolders)")
 
     args = parser.parse_args()
     device = "cuda" if args.device == "cuda" and torch.cuda.is_available() else "cpu"
@@ -194,6 +326,45 @@ def main():
         visualize_mhca(args.outdir, device=device)
     if "down" not in args.skip:
         visualize_downsample_block(args.outdir, device=device)
+    # visualize bottleneck unless skipped
+    if "bottleneck" not in args.skip:
+        visualize_bottleneck_block(args.outdir, device=device)
+    if "upsample" not in args.skip:
+        visualize_upsample_block(args.outdir, device=device)
+    if "unet" not in args.skip:
+        visualize_unet(args.outdir, device=device)
+    # Default to repo data/MNIST/mnist_images if not provided and it exists
+    default_mnist = PROJECT_ROOT / "data" / "MNIST" / "mnist_images"
+    mnist_root = args.mnist_root if args.mnist_root is not None else (default_mnist if default_mnist.exists() else None)
+
+    if "mnist" not in args.skip and mnist_root is not None and mnist_root.exists():
+        ds = MNISTDataset(dataset_split="viz", data_root=str(mnist_root))
+        # Grid of first N samples
+        n = min(16, len(ds))
+        if n > 0:
+            cols = 4
+            rows = (n + cols - 1) // cols
+            plt.figure(figsize=(cols * 2, rows * 2))
+            for i in range(n):
+                x = ds[i].cpu()
+                vis = (x + 1) / 2.0  # back to [0,1]
+                plt.subplot(rows, cols, i + 1)
+                plt.imshow(vis[0], cmap="gray")
+                plt.axis("off")
+            _savefig(args.outdir / "mnist_grid.png")
+
+        # Label histogram if labels present
+        if hasattr(ds, "labels") and len(ds.labels) > 0:
+            plt.figure(figsize=(6, 3))
+            counts = [0] * 10
+            for y in ds.labels:
+                if isinstance(y, int) and 0 <= y <= 9:
+                    counts[y] += 1
+            plt.bar(list(range(10)), counts)
+            plt.xlabel("digit")
+            plt.ylabel("count")
+            plt.title("MNIST label histogram")
+            _savefig(args.outdir / "mnist_label_hist.png")
 
     print(f"Saved visualizations to {args.outdir}")
 

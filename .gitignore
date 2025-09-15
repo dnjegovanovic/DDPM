@@ -9,6 +9,12 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+data/
+/data/MNIST/*
+data/**
+/data/
+./data/
+data/*
 develop-eggs/
 dist/
 downloads/
@@ -205,3 +211,4 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+data/MNIST/mnist_images/0/00001.png
