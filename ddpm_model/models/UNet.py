@@ -100,7 +100,7 @@ class UNet(nn.Module):
         self.norm_out = nn.GroupNorm(8, 16)
         self.conv_out = nn.Conv2d(16, self.in_channels, kernel_size=3, padding=1)
 
-    def forward(self, x: torch.Tensor, t: int):
+    def forward(self, x: torch.Tensor, t):
         """
         Forward pass of the UNet.
 
@@ -120,7 +120,15 @@ class UNet(nn.Module):
 
         # t_emb -> B x t_emb_dim
         B = x.shape[0]
-        t_vec = torch.full((B,), int(t), device=x.device, dtype=torch.float32)
+        # Support scalar int, 0-dim tensor, or per-sample (B,) tensor for timesteps
+        if isinstance(t, torch.Tensor):
+            if t.dim() == 0:
+                t_vec = t.expand(B).to(device=x.device, dtype=torch.float32)
+            else:
+                assert t.shape[0] == B, "t must be scalar or have shape (B,)"
+                t_vec = t.to(device=x.device, dtype=torch.float32)
+        else:
+            t_vec = torch.full((B,), float(t), device=x.device, dtype=torch.float32)
         t_emb = time_embedding_fun(t_vec, self.time_emb_dim)
         t_emb = self.time_proj(t_emb)
 

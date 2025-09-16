@@ -1,0 +1,4 @@
+# Install the appropriate torch/torchvision builds for your platform.
+# You may replace these with CUDA-specific wheels as needed.
+torch
+torchvision

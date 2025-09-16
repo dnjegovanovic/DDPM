@@ -197,6 +197,40 @@ python scripts/visualize_components.py --mnist-root /path/to/mnist_like --outdir
 
 ---
 
+## Training
+
+Train the DDPM model via `main.py` with optional live/saved visualization of denoising progress.
+
+- Expected dataset layout (MNIST-like folder tree):
+  - `data/MNIST/mnist_images/0/*.png`
+  - `data/MNIST/mnist_images/1/*.png`
+  - ... up to `9/*.png`
+
+- Basic training (saves checkpoints to task directory):
+  - `python main.py --train-ddpm-model --task-name runs/mnist_ddpm --data-path data/MNIST/mnist_images --batch-size 128 --num-epochs 40 --lr 1e-4`
+
+- Enable visualization snapshots (PNG grids saved under `task_name/viz/`):
+  - `python main.py --train-ddpm-model --task-name runs/mnist_ddpm --data-path data/MNIST/mnist_images --viz-save --viz-interval 200`
+
+- Live window + save (requires matplotlib and a display):
+  - `python main.py --train-ddpm-model --task-name runs/mnist_ddpm --data-path data/MNIST/mnist_images --batch-size 128 --num-epochs 40 --lr 1e-4 --viz-save --viz-live --viz-interval 200`
+
+- Visualization flags:
+  - `--viz-save`: Save PNGs to `task_name/viz/`.
+  - `--viz-live`: Show a live-updating matplotlib window.
+  - `--viz-interval <int>`: Steps between snapshots (default 500).
+  - `--viz-num <int>`: Number of images per grid (default 8).
+  - `--viz-t <int>`: Timestep to visualize (use `-1` for the last diffusion step).
+
+- Outputs:
+  - Checkpoints: `task_name/<ckpt-save-name>` (default `test_001.pth`).
+  - Visuals: `task_name/viz/denoise_progress_ep<epoch>_it<step>.png` and `..._end.png`.
+  - GIF: `task_name/viz/progress.gif` assembled from the saved PNGs at the end of training.
+
+Note: Live visualization is optional; if matplotlib is not available or a display is not present, use `--viz-save` to persist images for later review.
+
+---
+
 ## Tests
 
 Run all tests:

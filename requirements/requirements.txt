@@ -1,0 +1,6 @@
+# Runtime dependencies for ddpm_model
+numpy
+pydantic>=1.10
+strictyaml>=1.7
+tqdm
+Pillow
